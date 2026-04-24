@@ -1,0 +1,14 @@
+body {
+  background-color: #f5f5f5;
+}
+
+textarea {
+  padding: 10px;
+  font-size: 16px;
+}
+
+button {
+  padding: 10px 20px;
+  font-size: 16px;
+  cursor: pointer;
+}

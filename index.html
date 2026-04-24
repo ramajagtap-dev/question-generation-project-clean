@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>AI Question Generator</title>
+    <style>
+        body {
+            font-family: Arial;
+            background: linear-gradient(135deg, #6a11cb, #2575fc);
+            color: white;
+            text-align: center;
+            padding: 50px;
+        }
+        textarea {
+            width: 60%;
+            height: 120px;
+            border-radius: 10px;
+            padding: 10px;
+            font-size: 16px;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 18px;
+            border: none;
+            border-radius: 10px;
+            background: #ff7b00;
+            color: white;
+            cursor: pointer;
+            margin-top: 20px;
+        }
+        #output {
+            margin-top: 30px;
+            font-size: 20px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+
+<body>
+
+<h1>🤖 AI Question Generator</h1>
+
+<textarea id="context" placeholder="Enter your paragraph here..."></textarea><br>
+
+<button onclick="generate()">Generate Question</button>
+
+<div id="output"></div>
+
+<script>
+async function generate() {
+    let context = document.getElementById("context").value;
+
+    let response = await fetch("http://127.0.0.1:5000/generate", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({context: context})
+    });
+
+    let data = await response.json();
+
+    document.getElementById("output").innerText = data.question;
+}
+</script>
+
+</body>
+</html>
