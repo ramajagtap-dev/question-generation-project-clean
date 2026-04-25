@@ -2,26 +2,25 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 import requests
 import os
-import random
 
 app = Flask(__name__)
 CORS(app)
 
 HF_API_KEY = os.environ.get("HF_API_KEY")
 
-API_URL = "https://api-inference.huggingface.co/models/google/flan-t5-large"
+API_URL = "https://api-inference.huggingface.co/models/google/flan-t5-small"
 
 headers = {
     "Authorization": f"Bearer {HF_API_KEY}"
 }
 
-def query_hf(payload):
+def query(payload):
     response = requests.post(API_URL, headers=headers, json=payload)
     return response.json()
 
 @app.route("/")
 def home():
-    return "Advanced AI Question Generator Running 🚀"
+    return "AI Question Generator Running 🚀"
 
 @app.route("/generate", methods=["POST"])
 def generate():
@@ -29,40 +28,24 @@ def generate():
     text = data.get("context", "")
 
     if not text:
-        return jsonify({"error": "No input provided"}), 400
+        return jsonify({"error": "No input"}), 400
 
     prompt = f"""
-Generate 3 different questions, 3 MCQs with options, and difficulty level (easy/medium/hard) from this text:
+Generate 3 questions from this text:
 
 {text}
-
-Format:
-Question:
-MCQ:
-Difficulty:
 """
 
     try:
-        result = query_hf({
-            "inputs": prompt
-        })
+        result = query({"inputs": prompt})
 
-        output = result[0]["generated_text"]
+        # extract output safely
+        output = result[0]["generated_text"] if isinstance(result, list) else str(result)
 
-        # simple parsing
-        questions = []
-        mcqs = []
-
-        for line in output.split("\n"):
-            if "?" in line:
-                questions.append(line.strip())
-            if "MCQ" in line:
-                mcqs.append(line.strip())
+        questions = output.split("?")
 
         return jsonify({
-            "questions": questions[:5],
-            "mcqs": mcqs[:5],
-            "raw": output
+            "questions": [q.strip() + "?" for q in questions if len(q.strip()) > 5]
         })
 
     except Exception as e:
