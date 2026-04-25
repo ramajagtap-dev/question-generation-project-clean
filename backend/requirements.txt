@@ -1,6 +1,4 @@
 flask
 flask-cors
+requests
 gunicorn
-transformers
-sentencepiece
-torch --index-url https://download.pytorch.org/whl/cpu

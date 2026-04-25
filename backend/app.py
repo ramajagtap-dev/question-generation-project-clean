@@ -1,20 +1,27 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from transformers import pipeline
+import requests
 import os
+import random
 
 app = Flask(__name__)
 CORS(app)
 
-# ✅ FIX: use text-generation (NOT text2text-generation)
-qg = pipeline(
-    "text-generation",
-    model="google/flan-t5-small"
-)
+HF_API_KEY = os.environ.get("HF_API_KEY")
+
+API_URL = "https://api-inference.huggingface.co/models/google/flan-t5-large"
+
+headers = {
+    "Authorization": f"Bearer {HF_API_KEY}"
+}
+
+def query_hf(payload):
+    response = requests.post(API_URL, headers=headers, json=payload)
+    return response.json()
 
 @app.route("/")
 def home():
-    return "AI Question Generator Running 🚀"
+    return "Advanced AI Question Generator Running 🚀"
 
 @app.route("/generate", methods=["POST"])
 def generate():
@@ -24,38 +31,38 @@ def generate():
     if not text:
         return jsonify({"error": "No input provided"}), 400
 
-    # 🧠 Prompt (SQuAD-inspired logic)
     prompt = f"""
-Generate 3 different WH questions from the following paragraph:
+Generate 3 different questions, 3 MCQs with options, and difficulty level (easy/medium/hard) from this text:
 
 {text}
 
-Questions:
+Format:
+Question:
+MCQ:
+Difficulty:
 """
 
     try:
-        result = qg(
-            prompt,
-            max_new_tokens=120,
-            do_sample=True,
-            temperature=0.9,
-            top_p=0.95
-        )
+        result = query_hf({
+            "inputs": prompt
+        })
 
         output = result[0]["generated_text"]
 
-        # ✂️ Convert output into list
-        questions = [
-            q.strip() + "?"
-            for q in output.split("?")
-            if len(q.strip()) > 10
-        ]
+        # simple parsing
+        questions = []
+        mcqs = []
 
-        if not questions:
-            questions = ["What is the main idea of the text?"]
+        for line in output.split("\n"):
+            if "?" in line:
+                questions.append(line.strip())
+            if "MCQ" in line:
+                mcqs.append(line.strip())
 
         return jsonify({
-            "questions": questions[:5]
+            "questions": questions[:5],
+            "mcqs": mcqs[:5],
+            "raw": output
         })
 
     except Exception as e:
