@@ -6,10 +6,8 @@ import os
 app = Flask(__name__)
 CORS(app)
 
-# 🔑 API KEY LOAD
 API_KEY = os.getenv("API_KEY")
 
-# 🔍 DEBUG CHECK (temporary)
 print("API KEY LOADED:", API_KEY)
 
 @app.route("/")
@@ -25,11 +23,7 @@ def generate():
         if not text:
             return jsonify({"error": "No input"}), 400
 
-        prompt = f"""
-Generate 3 different and meaningful questions from this paragraph:
-
-{text}
-"""
+        prompt = f"Generate 3 questions from this text:\n{text}"
 
         response = requests.post(
             "https://api.openai.com/v1/chat/completions",
@@ -49,9 +43,6 @@ Generate 3 different and meaningful questions from this paragraph:
         )
 
         result = response.json()
-
-        # 🔍 DEBUG OUTPUT
-        print("OPENAI RESPONSE:", result)
 
         if "choices" not in result:
             return jsonify({"error": result}), 500
