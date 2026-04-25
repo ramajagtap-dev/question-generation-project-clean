@@ -1,9 +1,12 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-import random
+import requests
+import os
 
 app = Flask(__name__)
 CORS(app)
+
+API_KEY = os.getenv("API_KEY")
 
 @app.route("/")
 def home():
@@ -11,24 +14,54 @@ def home():
 
 @app.route("/generate", methods=["POST"])
 def generate():
-    data = request.json
-    text = data.get("context")
+    try:
+        data = request.json
+        text = data.get("context")
 
-    if not text:
-        return jsonify({"error": "No input"}), 400
+        if not text:
+            return jsonify({"error": "No input"}), 400
 
-    # 🔥 Simple dynamic questions (NO AI = FAST + STABLE)
-    templates = [
-        "What is the main topic of the paragraph?",
-        "What important information is given?",
-        "What can we learn from this text?",
-        "What is described in the paragraph?",
-        "Why is this topic important?"
-    ]
+        # 🔥 STRONG PROMPT
+        prompt = f"""
+Generate 3 different and meaningful questions from the given paragraph.
 
-    questions = random.sample(templates, 3)
+Rules:
+- Do NOT ask generic questions
+- Questions must be based on facts
+- Keep them clear and short
 
-    return jsonify({"questions": questions})
+Paragraph:
+{text}
 
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=10000)
+Questions:
+"""
+
+        response = requests.post(
+            "https://api.openai.com/v1/chat/completions",
+            headers={
+                "Authorization": f"Bearer {API_KEY}",
+                "Content-Type": "application/json"
+            },
+            json={
+                "model": "gpt-4o-mini",
+                "messages": [
+                    {"role": "user", "content": prompt}
+                ]
+            }
+        )
+
+        result = response.json()
+
+        output = result["choices"][0]["message"]["content"]
+
+        # 🔥 CLEAN PARSING
+        questions = []
+        for line in output.split("\n"):
+            line = line.strip()
+            if line:
+                questions.append(line)
+
+        return jsonify({"questions": questions})
+
+    except Exception as e:
+        return jsonify({"error": str(e)})
