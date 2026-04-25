@@ -6,17 +6,18 @@ import os
 app = Flask(__name__)
 CORS(app)
 
-# 🔐 HuggingFace API Key (Render ENV se)
+# 🔐 API KEY from Render ENV
 HF_API_KEY = os.environ.get("HF_API_KEY")
 
-API_URL = "https://api-inference.huggingface.co/models/google/flan-t5-small"
+# 🚀 MISTRAL MODEL (IMPORTANT CHANGE)
+API_URL = "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2"
 
 headers = {
     "Authorization": f"Bearer {HF_API_KEY}"
 }
 
 # -----------------------------
-# 🔥 SAFE API CALL FUNCTION
+# 🔥 API CALL FUNCTION
 # -----------------------------
 def query_hf(payload):
     try:
@@ -27,9 +28,8 @@ def query_hf(payload):
             timeout=60
         )
 
-        # ❗ if API fails
         if response.status_code != 200:
-            print("HF STATUS ERROR:", response.text)
+            print("HF ERROR:", response.text)
             return None
 
         try:
@@ -38,7 +38,7 @@ def query_hf(payload):
             return None
 
     except Exception as e:
-        print("HF REQUEST ERROR:", e)
+        print("REQUEST ERROR:", e)
         return None
 
 
@@ -47,7 +47,7 @@ def query_hf(payload):
 # -----------------------------
 @app.route("/")
 def home():
-    return "AI Question Generator LIVE 🚀"
+    return "Mistral AI Question Generator LIVE 🚀"
 
 
 # -----------------------------
@@ -62,23 +62,39 @@ def generate():
         if not text:
             return jsonify({"error": "No input provided"}), 400
 
+        # 🔥 STRONG MISTRAL PROMPT (IMPORTANT)
         prompt = f"""
-Generate 3 simple questions from this paragraph:
+[INST]
+You are an expert teacher.
 
+Read the paragraph carefully and generate 5 different exam questions ONLY from the content.
+
+Paragraph:
 {text}
+
+Rules:
+- Questions must be context-based
+- No generic questions
+- No repetition
+- Mix factual + conceptual + application questions
+
+Return only numbered questions.
+[/INST]
 """
 
         result = query_hf({"inputs": prompt})
 
         # -----------------------------
-        # 🔥 FALLBACK SYSTEM (IMPORTANT)
+        # 🔥 FALLBACK SYSTEM
         # -----------------------------
         if not result:
             return jsonify({
                 "questions": [
                     "What is the main idea of the paragraph?",
-                    "Explain the concept mentioned in the text.",
-                    "What do you understand from the given passage?"
+                    "What information is given in the text?",
+                    "How can this concept be used in real life?",
+                    "Explain the key concept mentioned.",
+                    "Why is this topic important?"
                 ]
             })
 
@@ -92,18 +108,26 @@ Generate 3 simple questions from this paragraph:
         # -----------------------------
         # ✂️ CLEAN OUTPUT
         # -----------------------------
-        questions = [
-            q.strip() + "?"
-            for q in output.split("?")
-            if len(q.strip()) > 5
-        ]
+        questions = []
 
-        # fallback again if empty
-        if not questions:
+        for line in output.split("\n"):
+            line = line.strip()
+
+            # remove numbering noise
+            line = line.replace("1.", "").replace("2.", "").replace("3.", "")
+            line = line.replace("4.", "").replace("5.", "").replace("-", "")
+
+            if "?" in line and len(line) > 10:
+                questions.append(line.strip())
+
+        # fallback safety
+        if len(questions) < 3:
             questions = [
-                "What is the main idea?",
-                "Explain the topic.",
-                "What did you learn from this paragraph?"
+                "What is explained in the paragraph?",
+                "What are the key points mentioned?",
+                "How is this useful in real life?",
+                "Explain the main concept.",
+                "What did you understand from the text?"
             ]
 
         return jsonify({
@@ -111,9 +135,7 @@ Generate 3 simple questions from this paragraph:
         })
 
     except Exception as e:
-        return jsonify({
-            "error": str(e)
-        }), 500
+        return jsonify({"error": str(e)}), 500
 
 
 # -----------------------------
