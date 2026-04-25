@@ -1,14 +1,9 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from transformers import pipeline
+import random
 
 app = Flask(__name__)
 CORS(app)
-
-generator = pipeline(
-    "text2text-generation",
-    model="google/flan-t5-small"
-)
 
 @app.route("/")
 def home():
@@ -16,37 +11,24 @@ def home():
 
 @app.route("/generate", methods=["POST"])
 def generate():
-    try:
-        data = request.json
-        text = data.get("context")
+    data = request.json
+    text = data.get("context")
 
-        if not text:
-            return jsonify({"error": "No input"}), 400
+    if not text:
+        return jsonify({"error": "No input"}), 400
 
-        questions_set = set()
+    # 🔥 Simple dynamic questions (NO AI = FAST + STABLE)
+    templates = [
+        "What is the main topic of the paragraph?",
+        "What important information is given?",
+        "What can we learn from this text?",
+        "What is described in the paragraph?",
+        "Why is this topic important?"
+    ]
 
-        # 🔥 Run model 3 times for diversity
-        for i in range(3):
-            prompt = f"Generate one specific question from this text:\n{text}"
+    questions = random.sample(templates, 3)
 
-            result = generator(
-                prompt,
-                max_length=80,
-                do_sample=True,
-                temperature=0.9
-            )
+    return jsonify({"questions": questions})
 
-            q = result[0]["generated_text"].strip()
-
-            if "?" not in q:
-                q += "?"
-
-            questions_set.add(q)
-
-        # convert to list
-        questions = list(questions_set)
-
-        return jsonify({"questions": questions})
-
-    except Exception as e:
-        return jsonify({"error": str(e)})
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=10000)
