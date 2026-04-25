@@ -2,70 +2,95 @@ import { useState } from "react";
 
 function App() {
   const [text, setText] = useState("");
-  const [questions, setQuestions] = useState("");
+  const [questions, setQuestions] = useState([]);
   const [loading, setLoading] = useState(false);
   const [dark, setDark] = useState(false);
 
+  const API_URL = "https://question-generator-q32x.onrender.com/generate";
+
   const generate = async () => {
+    if (!text.trim()) return;
+
     setLoading(true);
-    setQuestions("");
+    setQuestions([]);
 
-    const res = await fetch("http://127.0.0.1:5000/generate", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ context: text }),
-    });
+    try {
+      const res = await fetch(API_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ context: text }),
+      });
 
-    const data = await res.json();
-    setQuestions(data.questions);
+      const data = await res.json();
+
+      // 🔥 DEBUG (VERY IMPORTANT)
+      console.log("API RESPONSE:", data);
+
+      // 🔥 SAFE HANDLING
+      if (Array.isArray(data.questions) && data.questions.length > 0) {
+        setQuestions(data.questions);
+      } else if (data.question) {
+        setQuestions([data.question]);
+      } else if (data.error) {
+        setQuestions(["Backend Error: " + data.error]);
+      } else {
+        setQuestions(["No questions generated ❌"]);
+      }
+
+    } catch (error) {
+      console.log("FETCH ERROR:", error);
+      setQuestions(["Error connecting to server ❌"]);
+    }
+
     setLoading(false);
   };
 
   const copyText = () => {
-    navigator.clipboard.writeText(questions);
+    if (!questions.length) return;
+    navigator.clipboard.writeText(questions.join("\n"));
     alert("Copied to clipboard!");
   };
 
   return (
     <div style={dark ? styles.darkBg : styles.lightBg}>
       <div style={styles.card}>
-
+        
         <div style={styles.header}>
-          <h1>🧠 Question Generation Using GPT</h1>
+          <h1>🧠 AI Question Generator</h1>
 
-          <button
-            onClick={() => setDark(!dark)}
-            style={styles.toggle}
-          >
+          <button onClick={() => setDark(!dark)} style={styles.toggle}>
             {dark ? "☀️ Light" : "🌙 Dark"}
           </button>
         </div>
 
         <textarea
-          placeholder="Paste paragraph / Wikipedia text..."
+          placeholder="Paste your paragraph here..."
           value={text}
           onChange={(e) => setText(e.target.value)}
           style={styles.textarea}
         />
 
         <button onClick={generate} style={styles.button}>
-          Generate Questions 🚀
+          {loading ? "Generating..." : "Generate Questions 🚀"}
         </button>
 
-        {loading && <p style={styles.loading}>Generating questions...</p>}
-
-        {questions && (
+        {/* 🔥 FORCE SHOW OUTPUT */}
+        {questions.length > 0 && (
           <div style={styles.outputBox}>
             <h3>📌 Generated Questions</h3>
 
-            <pre style={styles.output}>
-              {questions.split("?").map((q, i) =>
-                q.trim() ? `${i + 1}. ${q.trim()}?` : ""
-              )}
-            </pre>
+            <ul>
+              {questions.map((q, i) => (
+                <li key={i} style={styles.output}>
+                  {q}
+                </li>
+              ))}
+            </ul>
 
             <button onClick={copyText} style={styles.copyBtn}>
-              📋 Copy
+              📋 Copy All
             </button>
           </div>
         )}
@@ -127,10 +152,6 @@ const styles = {
     borderRadius: "8px",
     cursor: "pointer",
   },
-  loading: {
-    marginTop: "10px",
-    color: "orange",
-  },
   outputBox: {
     marginTop: "20px",
     background: "#f9f9f9",
@@ -138,8 +159,10 @@ const styles = {
     borderRadius: "10px",
   },
   output: {
-    whiteSpace: "pre-wrap",
-    fontSize: "14px",
+    fontSize: "15px",
+    fontWeight: "500",
+    color: "#333",
+    marginBottom: "5px",
   },
   copyBtn: {
     marginTop: "10px",
@@ -153,4 +176,3 @@ const styles = {
 };
 
 export default App;
-   
