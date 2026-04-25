@@ -15,26 +15,13 @@ def home():
 @app.route("/generate", methods=["POST"])
 def generate():
     try:
-        data = request.json
-        text = data.get("context")
+        data = request.get_json()
+        text = data.get("context", "")
 
         if not text:
             return jsonify({"error": "No input"}), 400
 
-        # 🔥 STRONG PROMPT
-        prompt = f"""
-Generate 3 different and meaningful questions from the given paragraph.
-
-Rules:
-- Do NOT ask generic questions
-- Questions must be based on facts
-- Keep them clear and short
-
-Paragraph:
-{text}
-
-Questions:
-"""
+        prompt = f"Generate 3 simple questions from this:\n{text}"
 
         response = requests.post(
             "https://api.openai.com/v1/chat/completions",
@@ -46,22 +33,24 @@ Questions:
                 "model": "gpt-4o-mini",
                 "messages": [
                     {"role": "user", "content": prompt}
-                ]
-            }
+                ],
+                "max_tokens": 100
+            },
+            timeout=15   # 🔥 IMPORTANT (prevents hanging)
         )
 
         result = response.json()
 
         output = result["choices"][0]["message"]["content"]
 
-        # 🔥 CLEAN PARSING
-        questions = []
-        for line in output.split("\n"):
-            line = line.strip()
-            if line:
-                questions.append(line)
+        questions = [q.strip() for q in output.split("\n") if q.strip()]
 
         return jsonify({"questions": questions})
 
     except Exception as e:
         return jsonify({"error": str(e)})
+
+# 🔥 MUST HAVE FOR RENDER
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
