@@ -5,7 +5,6 @@ from transformers import pipeline
 app = Flask(__name__)
 CORS(app)
 
-# 🔥 Load model once
 generator = pipeline(
     "text2text-generation",
     model="google/flan-t5-small"
@@ -24,47 +23,28 @@ def generate():
         if not text:
             return jsonify({"error": "No input"}), 400
 
-        # 🔥 STRONG PROMPT (KEY CHANGE)
-        prompt = f"""
-Read the paragraph and generate 3 different and specific questions.
+        questions_set = set()
 
-Rules:
-- Do NOT ask "main idea"
-- Questions must be different
-- Questions must be based on facts in paragraph
+        # 🔥 Run model 3 times for diversity
+        for i in range(3):
+            prompt = f"Generate one specific question from this text:\n{text}"
 
-Paragraph:
-{text}
+            result = generator(
+                prompt,
+                max_length=80,
+                do_sample=True,
+                temperature=0.9
+            )
 
-Output format:
-1.
-2.
-3.
-"""
+            q = result[0]["generated_text"].strip()
 
-        result = generator(
-            prompt,
-            max_length=200,
-            do_sample=True,      # 🔥 randomness
-            temperature=0.9,     # 🔥 variation
-            top_k=50,
-            top_p=0.95
-        )
+            if "?" not in q:
+                q += "?"
 
-        output = result[0]["generated_text"]
+            questions_set.add(q)
 
-        # 🔥 STRONG PARSING
-        lines = output.split("\n")
-        questions = []
-
-        for line in lines:
-            line = line.strip()
-            if line and "?" in line:
-                questions.append(line)
-
-        # fallback (important)
-        if len(questions) < 2:
-            questions = [output.strip()]
+        # convert to list
+        questions = list(questions_set)
 
         return jsonify({"questions": questions})
 
