@@ -1,12 +1,16 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from transformers import pipeline
+import os
 
 app = Flask(__name__)
 CORS(app)
 
-# 🔥 AI MODEL
-qg = pipeline("text2text-generation", model="google/flan-t5-small")
+# ✅ FIX: use text-generation (NOT text2text-generation)
+qg = pipeline(
+    "text-generation",
+    model="google/flan-t5-small"
+)
 
 @app.route("/")
 def home():
@@ -18,29 +22,46 @@ def generate():
     text = data.get("context", "")
 
     if not text:
-        return jsonify({"error": "No input"}), 400
+        return jsonify({"error": "No input provided"}), 400
 
-    # 🔥 SQuAD STYLE PROMPT
+    # 🧠 Prompt (SQuAD-inspired logic)
     prompt = f"""
-Generate 3 different WH questions from this text:
+Generate 3 different WH questions from the following paragraph:
 
 {text}
+
+Questions:
 """
 
-    result = qg(prompt, max_length=128, do_sample=True, temperature=0.9)
+    try:
+        result = qg(
+            prompt,
+            max_new_tokens=120,
+            do_sample=True,
+            temperature=0.9,
+            top_p=0.95
+        )
 
-    output = result[0]["generated_text"]
+        output = result[0]["generated_text"]
 
-    # split into questions
-    questions = [q.strip() for q in output.split("?") if len(q.strip()) > 10]
-    questions = [q + "?" for q in questions]
+        # ✂️ Convert output into list
+        questions = [
+            q.strip() + "?"
+            for q in output.split("?")
+            if len(q.strip()) > 10
+        ]
 
-    if not questions:
-        questions = ["What is the main idea of the text?"]
+        if not questions:
+            questions = ["What is the main idea of the text?"]
 
-    return jsonify({"questions": questions[:5]})
+        return jsonify({
+            "questions": questions[:5]
+        })
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 
 if __name__ == "__main__":
-    import os
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
