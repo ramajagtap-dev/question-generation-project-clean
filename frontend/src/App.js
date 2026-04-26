@@ -23,25 +23,32 @@ function App() {
         body: JSON.stringify({ context: text }),
       });
 
-      const data = await res.json();
+      // 🔥 SAFE JSON PARSE
+      const data = await res.json().catch(() => null);
 
-      // 🔥 DEBUG (VERY IMPORTANT)
       console.log("API RESPONSE:", data);
 
-      // 🔥 SAFE HANDLING
-      if (Array.isArray(data.questions) && data.questions.length > 0) {
+      if (!data) {
+        setQuestions(["Server not responding ❌"]);
+        return;
+      }
+
+      if (data.questions && Array.isArray(data.questions)) {
         setQuestions(data.questions);
-      } else if (data.question) {
+      } 
+      else if (data.question) {
         setQuestions([data.question]);
-      } else if (data.error) {
-        setQuestions(["Backend Error: " + data.error]);
-      } else {
+      } 
+      else if (data.error) {
+        setQuestions(["Backend Error: " + JSON.stringify(data.error)]);
+      } 
+      else {
         setQuestions(["No questions generated ❌"]);
       }
 
     } catch (error) {
       console.log("FETCH ERROR:", error);
-      setQuestions(["Error connecting to server ❌"]);
+      setQuestions(["Network Error ❌"]);
     }
 
     setLoading(false);
@@ -57,6 +64,7 @@ function App() {
     <div style={dark ? styles.darkBg : styles.lightBg}>
       <div style={styles.card}>
         
+        {/* HEADER */}
         <div style={styles.header}>
           <h1>🧠 AI Question Generator</h1>
 
@@ -65,6 +73,7 @@ function App() {
           </button>
         </div>
 
+        {/* INPUT */}
         <textarea
           placeholder="Paste your paragraph here..."
           value={text}
@@ -72,11 +81,12 @@ function App() {
           style={styles.textarea}
         />
 
+        {/* BUTTON */}
         <button onClick={generate} style={styles.button}>
           {loading ? "Generating..." : "Generate Questions 🚀"}
         </button>
 
-        {/* 🔥 FORCE SHOW OUTPUT */}
+        {/* OUTPUT */}
         {questions.length > 0 && (
           <div style={styles.outputBox}>
             <h3>📌 Generated Questions</h3>
@@ -99,6 +109,7 @@ function App() {
   );
 }
 
+/* 🎨 STYLES */
 const styles = {
   lightBg: {
     minHeight: "100vh",
