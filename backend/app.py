@@ -32,15 +32,22 @@ def generate_questions():
     if not text:
         return jsonify({"error": "No text provided"}), 400
 
-    prompt = f"Generate 3 questions from this paragraph: {text}"
+    prompt = f"""
+    Read the paragraph and generate 3 specific questions based on it.
+
+    Paragraph: {text}
+
+    Questions:
+    """
 
     inputs = tokenizer(prompt, return_tensors="pt", truncation=True)
 
     outputs = model.generate(
         **inputs,
         max_length=128,
-        do_sample=True,
-        temperature=0.7
+        num_beams=5,
+        early_stopping=True,
+        no_repeat_ngram_size=2
     )
 
     questions = tokenizer.decode(outputs[0], skip_special_tokens=True)
