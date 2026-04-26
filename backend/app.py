@@ -1,49 +1,93 @@
 from flask import Flask, request, jsonify
-from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
+from flask_cors import CORS
+from transformers import pipeline
+from data_loader import get_dataset
+import os
 
 app = Flask(__name__)
+CORS(app)
 
-model_name = "google/flan-t5-small"
+# =========================
+# MODEL LOAD
+# =========================
+print("Loading AI model...")
 
-tokenizer = AutoTokenizer.from_pretrained(model_name)
-model = AutoModelForSeq2SeqLM.from_pretrained(model_name)
+qg_pipeline = pipeline(
+    "text2text-generation",
+    model="google/flan-t5-small"
+)
 
+print("Model loaded successfully ✅")
+
+
+# =========================
+# QUESTION GENERATION
+# =========================
+def generate_questions(context):
+
+    prompt = f"""
+Generate 5 simple and clear questions from the paragraph below:
+
+Paragraph:
+{context}
+
+Questions:
+"""
+
+    result = qg_pipeline(
+        prompt,
+        max_length=128,
+        do_sample=False
+    )
+
+    text = result[0]["generated_text"]
+
+    # clean split into list
+    questions = [
+        q.strip()
+        for q in text.split("?")
+        if q.strip()
+    ]
+
+    # add ? back for proper format
+    questions = [q + "?" if not q.endswith("?") else q for q in questions]
+
+    return questions[:5]
+
+
+# =========================
+# ROUTES
+# =========================
 @app.route("/")
 def home():
-    return "AI Question Generator Running ✅"
+    return jsonify({"message": "AI Question Generator is running 🚀"})
+
 
 @app.route("/generate", methods=["POST"])
 def generate():
     try:
         data = request.get_json()
-        context = data.get("context", "")
 
-        if not context:
+        if not data or "context" not in data:
             return jsonify({"error": "No context provided"}), 400
 
-        prompt = f"""
-        Generate 5 different questions from this paragraph:
+        context = data["context"]
 
-        {context}
-        """
-
-        inputs = tokenizer(prompt, return_tensors="pt", truncation=True)
-
-        outputs = model.generate(
-            **inputs,
-            max_new_tokens=120,
-            do_sample=True,
-            temperature=0.7
-        )
-
-        answer = tokenizer.decode(outputs[0], skip_special_tokens=True)
+        questions = generate_questions(context)
 
         return jsonify({
-            "questions": answer
+            "questions": questions
         })
 
     except Exception as e:
-        return jsonify({"error": str(e)})
+        return jsonify({
+            "error": str(e)
+        }), 500
 
+
+# =========================
+# RUN SERVER
+# =========================
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=10000)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)

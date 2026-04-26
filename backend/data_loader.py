@@ -1,7 +1,9 @@
 from datasets import load_dataset
 
-# SQuAD dataset load karo
-dataset = load_dataset("squad")
+dataset = None
 
-# Check data
-print(dataset)
+def get_dataset():
+    global dataset
+    if dataset is None:
+        dataset = load_dataset("squad")
+    return dataset
