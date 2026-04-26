@@ -1,34 +1,27 @@
-from flask import Flask, request, jsonify
-from transformers import pipeline
+from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, pipeline
 
-app = Flask(__name__)
+model_name = "google/flan-t5-small"
 
-generator = pipeline("text2text-generation", model="google/flan-t5-small")
+tokenizer = AutoTokenizer.from_pretrained(model_name)
+model = AutoModelForSeq2SeqLM.from_pretrained(model_name)
 
-@app.route("/")
-def home():
-    return "Server is running ✅"
+def generate(text):
+    input_text = f"""
+You are a question generator.
+Generate 3 meaningful questions ONLY from this paragraph:
 
-@app.route("/generate", methods=["POST"])
-def generate_question():
-    try:
-        data = request.get_json()
-        context = data.get("context")
+{text}
+"""
 
-        if not context:
-            return jsonify({"error": "No context provided"}), 400
+    inputs = tokenizer(input_text, return_tensors="pt", truncation=True)
 
-        result = generator(
-            f"generate a question from this paragraph: {context}",
-            max_length=64
-        )
+    outputs = model.generate(
+        **inputs,
+        max_length=128,
+        do_sample=True,
+        temperature=0.7
+    )
 
-        question = result[0]['generated_text']
+    return tokenizer.decode(outputs[0], skip_special_tokens=True)
 
-        return jsonify({"question": question})
-
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-if __name__ == "__main__":
-    app.run(debug=True)
+print(generate("AI is used in healthcare and education"))
