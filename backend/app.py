@@ -1,66 +1,74 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from transformers import pipeline
-from data_loader import get_dataset
 import os
 
 app = Flask(__name__)
 CORS(app)
 
 # =========================
-# MODEL LOAD
+# MODEL
 # =========================
-print("Loading AI model...")
+print("Loading model...")
 
 qg_pipeline = pipeline(
     "text2text-generation",
-    model="google/flan-t5-small"
+    model="google/flan-t5-base"   # better than small
 )
 
-print("Model loaded successfully ✅")
+print("Model loaded ✅")
 
 
 # =========================
-# QUESTION GENERATION
+# CORE FUNCTION
 # =========================
 def generate_questions(context):
 
     prompt = f"""
-Generate 5 simple and clear questions from the paragraph below:
+Generate 5 high-quality questions from the paragraph below.
+
+Rules:
+- Questions must be based only on given paragraph
+- Do not repeat same type of questions
+- Focus on who, what, where, why, how
 
 Paragraph:
 {context}
 
-Questions:
+Output format:
+1.
+2.
+3.
+4.
+5.
 """
 
     result = qg_pipeline(
         prompt,
-        max_length=128,
-        do_sample=False
+        max_length=256,
+        do_sample=True,
+        temperature=0.8
     )
 
     text = result[0]["generated_text"]
 
-    # clean split into list
-    questions = [
-        q.strip()
-        for q in text.split("?")
-        if q.strip()
-    ]
+    # clean output
+    questions = []
 
-    # add ? back for proper format
-    questions = [q + "?" if not q.endswith("?") else q for q in questions]
+    for line in text.split("\n"):
+        line = line.strip()
+        if len(line) > 5:
+            questions.append(line)
 
     return questions[:5]
 
 
 # =========================
-# ROUTES
+# API
 # =========================
 @app.route("/")
 def home():
-    return jsonify({"message": "AI Question Generator is running 🚀"})
+    return jsonify({"message": "AI Question Generator Running 🚀"})
 
 
 @app.route("/generate", methods=["POST"])
@@ -80,13 +88,11 @@ def generate():
         })
 
     except Exception as e:
-        return jsonify({
-            "error": str(e)
-        }), 500
+        return jsonify({"error": str(e)})
 
 
 # =========================
-# RUN SERVER
+# RUN
 # =========================
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
