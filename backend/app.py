@@ -1,99 +1,60 @@
 from flask import Flask, request, jsonify
-from flask_cors import CORS
-from transformers import pipeline
-import os
+from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
+import torch
+from data_loader import get_squad_examples
+import random
 
 app = Flask(__name__)
-CORS(app)
 
-# =========================
-# MODEL
-# =========================
 print("Loading model...")
 
-qg_pipeline = pipeline(
-    "text2text-generation",
-    model="google/flan-t5-base"   # better than small
-)
+model_name = "google/flan-t5-small"
+
+tokenizer = AutoTokenizer.from_pretrained(model_name)
+model = AutoModelForSeq2SeqLM.from_pretrained(model_name)
 
 print("Model loaded ✅")
 
-
-# =========================
-# CORE FUNCTION
-# =========================
-def generate_questions(context):
-
-    prompt = f"""
-Generate 5 high-quality questions from the paragraph below.
-
-Rules:
-- Questions must be based only on given paragraph
-- Do not repeat same type of questions
-- Focus on who, what, where, why, how
-
-Paragraph:
-{context}
-
-Output format:
-1.
-2.
-3.
-4.
-5.
-"""
-
-    result = qg_pipeline(
-        prompt,
-        max_length=256,
-        do_sample=True,
-        temperature=0.8
-    )
-
-    text = result[0]["generated_text"]
-
-    # clean output
-    questions = []
-
-    for line in text.split("\n"):
-        line = line.strip()
-        if len(line) > 5:
-            questions.append(line)
-
-    return questions[:5]
+# SQuAD data
+squad_data = get_squad_examples(100)
 
 
-# =========================
-# API
-# =========================
 @app.route("/")
 def home():
-    return jsonify({"message": "AI Question Generator Running 🚀"})
+    return "🚀 Question Generation API is running!"
 
 
 @app.route("/generate", methods=["POST"])
-def generate():
-    try:
-        data = request.get_json()
+def generate_questions():
+    data = request.json
+    text = data.get("text", "")
 
-        if not data or "context" not in data:
-            return jsonify({"error": "No context provided"}), 400
+    if not text:
+        return jsonify({"error": "No text provided"}), 400
 
-        context = data["context"]
+    prompt = f"Generate 3 questions from this paragraph: {text}"
 
-        questions = generate_questions(context)
+    inputs = tokenizer(prompt, return_tensors="pt", truncation=True)
 
-        return jsonify({
-            "questions": questions
-        })
+    outputs = model.generate(
+        **inputs,
+        max_length=128,
+        do_sample=True,
+        temperature=0.7
+    )
 
-    except Exception as e:
-        return jsonify({"error": str(e)})
+    questions = tokenizer.decode(outputs[0], skip_special_tokens=True)
+
+    return jsonify({
+        "input_text": text,
+        "questions": questions
+    })
 
 
-# =========================
-# RUN
-# =========================
+@app.route("/squad-sample", methods=["GET"])
+def squad_sample():
+    return jsonify(random.choice(squad_data))
+
+
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
+    app.run(debug=True)

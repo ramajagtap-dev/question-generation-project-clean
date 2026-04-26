@@ -6,8 +6,7 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [dark, setDark] = useState(false);
 
-  const API_URL = "https://question-generator-q32x.onrender.com/generate";
-
+  const API_URL = process.env.REACT_APP_API_URL;
   const generate = async () => {
     if (!text.trim()) return;
 
